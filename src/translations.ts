@@ -130,6 +130,11 @@ export const translations: Record<Language, any> = {
                 name: "PDF Master",
                 description: "Clean Document Tools",
                 howToUse: "Merge and convert documents. Batch upload images to combine them into a single high-quality PDF file instantly."
+            },
+            'bg-remover': {
+                name: "Background Remover",
+                description: "AI Background Removal",
+                howToUse: "Upload an image and the AI will automatically remove the background, leaving you with a clean, transparent PNG."
             }
         }
     },
@@ -255,7 +260,12 @@ export const translations: Record<Language, any> = {
             pdf: {
                 name: "Maître PDF",
                 description: "Outils de Documents Pro",
-                howToUse: "Fusionnez et convertissez des documents. Combinați mai multe imagini într-un singur fișier PDF de înaltă calitate."
+                howToUse: "Fusionnez et convertissez des documents. Combinați mai multe imagini într-un singur fișier PDF de înaltă qualité."
+            },
+            'bg-remover': {
+                name: "Suppresseur de Fond",
+                description: "Suppression d'Arrière-plan IA",
+                howToUse: "Téléchargez une image et l'IA supprimera automatiquement l'arrière-plan, vous laissant un PNG transparent propre."
             }
         }
     }

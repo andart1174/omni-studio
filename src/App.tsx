@@ -5,7 +5,7 @@ import {
   Sigma, Palette, Upload, Download,
   Menu, X, Sparkles, Copy, RefreshCcw,
   Image as ImageIcon, ScanText, FileText, Table,
-  Mic, Box as BoxIcon, Eye, Monitor
+  Mic, Box as BoxIcon, Eye, Monitor, Scissors, Sun, Moon, History, QrCode
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as confetti from 'canvas-confetti';
@@ -42,7 +42,7 @@ type StudioID =
   | 'privacy' | 'architecture' | 'font' | 'seo'
   | 'game' | 'automation' | 'code' | 'security'
   | 'math' | 'color' | 'visual' | 'ocr'
-  | 'document' | 'data' | 'audio' | '3d' | 'branding' | 'mockup' | 'analytics' | 'cyber' | 'qr' | 'motion' | 'pdf';
+  | 'document' | 'data' | 'audio' | '3d' | 'branding' | 'mockup' | 'analytics' | 'cyber' | 'qr' | 'motion' | 'pdf' | 'bg-remover';
 
 interface Studio {
   id: StudioID;
@@ -52,12 +52,13 @@ interface Studio {
 const studios: Studio[] = [
   { id: 'motion', icon: <RefreshCcw size={16} /> },
   { id: 'pdf', icon: <FileText size={16} /> },
+  { id: 'bg-remover', icon: <Scissors size={16} /> },
   { id: 'analytics', icon: <LayoutDashboard size={16} /> },
-  { id: 'qr', icon: <Gamepad2 size={16} /> },
+  { id: 'qr', icon: <QrCode size={16} /> },
   { id: 'cyber', icon: <ShieldAlert size={16} /> },
   { id: 'mockup', icon: <Monitor size={16} /> },
   { id: 'branding', icon: <Sparkles size={16} /> },
-  { id: 'privacy', icon: <ShieldAlert size={16} /> },
+  { id: 'privacy', icon: <Lock size={16} /> },
   { id: 'visual', icon: <ImageIcon size={16} /> },
   { id: 'ocr', icon: <ScanText size={16} /> },
   { id: 'document', icon: <FileText size={16} /> },
@@ -66,7 +67,7 @@ const studios: Studio[] = [
   { id: '3d', icon: <BoxIcon size={16} /> },
   { id: 'security', icon: <Lock size={16} /> },
   { id: 'code', icon: <Code2 size={16} /> },
-  { id: 'architecture', icon: <LayoutDashboard size={16} /> },
+  { id: 'architecture', icon: <Workflow size={16} /> },
   { id: 'font', icon: <Type size={16} /> },
   { id: 'seo', icon: <Search size={16} /> },
   { id: 'game', icon: <Gamepad2 size={16} /> },
@@ -97,8 +98,16 @@ export default function App() {
   const micRecorderRef = useRef<MediaRecorder | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [history, setHistory] = useState<any[]>([]);
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [showHistory, setShowHistory] = useState(false);
   const threeContainerRef = useRef<HTMLDivElement>(null);
   const audioCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    // Clear result when switching studios to prevent mismatch
+    setResult(null);
+  }, [activeStudio]);
 
   const t = translations[language];
   const s = t.studios[activeStudio];
@@ -183,6 +192,8 @@ export default function App() {
   const processFiles = async (files: File[]) => {
     if (files.length === 0 && activeStudio !== 'qr' && activeStudio !== '3d') return;
     setIsProcessing(true);
+    // Track local active studio to prevent race conditions
+    const processingStudio = activeStudio;
     const file = files[0];
 
     try {
@@ -307,11 +318,17 @@ export default function App() {
           resultUrl = await math.texToSvg(tex);
           type = 'svg';
           break;
+        case 'bg-remover':
+          resultUrl = await visual.applyFilter(file, 'remove-bg');
+          break;
         default:
           resultUrl = URL.createObjectURL(file);
       }
 
-      setResult({ url: resultUrl, type, file: activeStudio === '3d' ? file : undefined });
+      if (activeStudio === processingStudio) {
+        setResult({ url: resultUrl, type, file: activeStudio === '3d' ? file : undefined });
+        setHistory(prev => [{ url: resultUrl, type, studio: activeStudio, time: new Date().toLocaleTimeString() }, ...prev].slice(0, 10));
+      }
       confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
     } catch (e: any) {
       console.error(e);
@@ -324,7 +341,7 @@ export default function App() {
   const currentStudio = studios.find(st => st.id === activeStudio);
 
   return (
-    <div className="app-container" style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+    <div className={`app-container ${theme}-theme`} style={{ display: 'flex', height: '100vh', overflow: 'hidden', color: 'var(--text-main)' }}>
       {/* Optimized Sidebar */}
       <aside className={`sidebar glass ${isSidebarOpen ? '' : 'collapsed'}`} style={{
         width: isSidebarOpen ? 260 : 80,
@@ -335,8 +352,8 @@ export default function App() {
       }}>
         <div style={{ padding: 24, paddingBottom: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            {isSidebarOpen && <h1 style={{ fontSize: 18, letterSpacing: -0.5, color: '#fff' }}>OMNI STUDIO</h1>}
-            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="glass" style={{ border: 'none', color: '#fff', padding: 8, borderRadius: 8, cursor: 'pointer' }}>
+            {isSidebarOpen && <h1 style={{ fontSize: 18, letterSpacing: -0.5, color: 'var(--text-main)' }}>OMNI STUDIO</h1>}
+            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="glass" style={{ border: 'none', color: 'var(--text-main)', padding: 8, borderRadius: 8, cursor: 'pointer' }}>
               {isSidebarOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
           </div>
@@ -362,16 +379,19 @@ export default function App() {
       </aside>
 
       {/* Main Workspace */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#050505', position: 'relative' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg-dark)', position: 'relative' }}>
         <header className="workspace-header" style={{ padding: '24px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ padding: 8, background: 'var(--accent-primary)', borderRadius: 10 }}>{currentStudio?.icon}</div>
-              <h2 style={{ fontSize: 24, fontWeight: 800, color: '#fff' }}>{s.name}</h2>
+              <h2 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-main)' }}>{s.name}</h2>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
             <div className="glass" style={{ padding: '4px 8px', borderRadius: 100, display: 'flex', gap: 4 }}>
+              <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="badge badge-blue" style={{ border: 'none', cursor: 'pointer', padding: '4px 8px' }}>
+                {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+              </button>
               <button
                 onClick={() => setLanguage('en')}
                 className={`badge ${language === 'en' ? 'badge-blue' : ''}`}
@@ -383,27 +403,47 @@ export default function App() {
                 style={{ border: 'none', cursor: 'pointer', fontSize: 10, padding: '4px 10px', background: language === 'fr' ? 'var(--accent-primary)' : 'transparent' }}
               >FR</button>
             </div>
+            <button onClick={() => setShowHistory(!showHistory)} className="badge badge-blue" style={{ border: 'none', cursor: 'pointer' }}>
+              <History size={14} />
+            </button>
             <button className="badge badge-purple" style={{ border: 'none', cursor: 'pointer' }}><Sparkles size={14} /> {t.common.pro_badge}</button>
           </div>
         </header>
 
-        <div style={{ flex: 1, padding: '0 40px 40px', overflow: 'hidden' }}>
+        <div style={{ flex: 1, padding: '0 40px 40px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {/* Instructions Panel - Outside AnimatePresence for instant sync */}
+          <div className="glass" style={{ padding: '16px 24px', borderRadius: 24, marginBottom: 20, borderLeft: '4px solid var(--accent-primary)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+              <Eye size={16} color="var(--accent-primary)" />
+              <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1, color: 'var(--accent-primary)', textTransform: 'uppercase' }}>How to Use</span>
+            </div>
+            <p style={{ color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.5 }}>{t.studios[activeStudio].howToUse}</p>
+          </div>
+
           <AnimatePresence mode="wait">
             <motion.div
               key={activeStudio + language}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+              style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
             >
-              {/* Instructions Panel */}
-              <div className="glass" style={{ padding: '16px 24px', borderRadius: 24, marginBottom: 20, borderLeft: '4px solid var(--accent-primary)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                  <Eye size={16} color="var(--accent-primary)" />
-                  <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1, color: 'var(--accent-primary)', textTransform: 'uppercase' }}>How to Use</span>
+
+              {showHistory && history.length > 0 && (
+                <div className="glass" style={{ padding: 16, borderRadius: 24, marginBottom: 20 }}>
+                  <h4 style={{ color: '#fff', fontSize: 12, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 }}>Recent Results</h4>
+                  <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 10 }}>
+                    {history.map((h, i) => (
+                      <div key={i} onClick={() => { setActiveStudio(h.studio); setResult(h); }} style={{ minWidth: 80, cursor: 'pointer', textAlign: 'center' }}>
+                        <div style={{ width: 60, height: 60, background: 'rgba(255,255,255,0.05)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 6px' }}>
+                          {h.type === 'image' ? <img src={h.url} style={{ width: '80%', height: '80%', objectFit: 'cover' }} /> : <FileText size={24} color="var(--accent-primary)" />}
+                        </div>
+                        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)' }}>{h.time}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, lineHeight: 1.5 }}>{s.howToUse}</p>
-              </div>
+              )}
 
               {!result ? (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -423,7 +463,7 @@ export default function App() {
                   )}
                   {activeStudio === 'qr' && (
                     <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
-                      <input type="text" value={qrText} onChange={(e) => setQrText(e.target.value)} placeholder="QR Content..." style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--glass-border)', color: '#fff', fontSize: 12, outline: 'none', width: 250 }} />
+                      <input type="text" value={qrText} onChange={(e) => setQrText(e.target.value)} placeholder="QR Content..." style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-main)', fontSize: 12, outline: 'none', width: 250 }} />
                       <input type="color" value={qrColor} onChange={(e) => setQrColor(e.target.value)} style={{ border: 'none', width: 30, height: 30, background: 'transparent', cursor: 'pointer' }} />
                       <button onClick={() => processFiles([])} className="badge badge-purple" style={{ border: 'none', cursor: 'pointer' }}>Generate QR</button>
                     </div>
@@ -504,7 +544,7 @@ export default function App() {
                         <input
                           type="text"
                           placeholder="Type to speak..."
-                          style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: '1px solid var(--glass-border)', color: '#fff', outline: 'none' }}
+                          style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-main)', outline: 'none' }}
                           value={inputText}
                           onChange={(e) => setInputText(e.target.value)}
                         />
@@ -547,7 +587,7 @@ export default function App() {
                   <div className="glass" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 24px', borderRadius: '24px 24px 0 0', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                       <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-primary)' }} />
-                      <span style={{ color: '#fff', fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 1 }}>{activeStudio} Result</span>
+                      <span style={{ color: 'var(--text-main)', fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 1 }}>{activeStudio} Result</span>
                     </div>
                     <div style={{ display: 'flex', gap: 12 }}>
                       <button onClick={() => setResult(null)} className="badge badge-blue" style={{ border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}><X size={14} /> Close</button>
