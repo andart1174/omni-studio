@@ -181,7 +181,7 @@ export default function App() {
   };
 
   const processFiles = async (files: File[]) => {
-    if (files.length === 0) return;
+    if (files.length === 0 && activeStudio !== 'qr' && activeStudio !== '3d') return;
     setIsProcessing(true);
     const file = files[0];
 
@@ -423,9 +423,15 @@ export default function App() {
                   )}
                   {activeStudio === 'qr' && (
                     <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
-                      <input type="text" value={qrText} onChange={(e) => setQrText(e.target.value)} placeholder="QR Content..." style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--glass-border)', color: '#fff', fontSize: 12, outline: 'none', width: 150 }} />
+                      <input type="text" value={qrText} onChange={(e) => setQrText(e.target.value)} placeholder="QR Content..." style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--glass-border)', color: '#fff', fontSize: 12, outline: 'none', width: 250 }} />
                       <input type="color" value={qrColor} onChange={(e) => setQrColor(e.target.value)} style={{ border: 'none', width: 30, height: 30, background: 'transparent', cursor: 'pointer' }} />
                       <button onClick={() => processFiles([])} className="badge badge-purple" style={{ border: 'none', cursor: 'pointer' }}>Generate QR</button>
+                    </div>
+                  )}
+                  {activeStudio === '3d' && (
+                    <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
+                      <button onClick={() => processFiles([])} className="badge badge-blue" style={{ border: 'none', cursor: 'pointer' }}>Start 3D Viewer</button>
+                      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>OR UPLOAD .OBJ BELOW</span>
                     </div>
                   )}
                   {activeStudio === 'analytics' && (
