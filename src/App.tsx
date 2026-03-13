@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
+import JSZip from 'jszip';
 
 // Engines
 import * as privacy from './engine/privacyEngine';
@@ -745,6 +746,61 @@ export default function App() {
                           a.click();
                           document.body.removeChild(a);
                           URL.revokeObjectURL(url);
+                        } else if (activeStudio === 'icon' && result.data && Array.isArray(result.data)) {
+                          setIsProcessing(true);
+                          const zip = new JSZip();
+                          for (const icon of result.data) {
+                             const response = await fetch(icon.url);
+                             const blob = await response.blob();
+                             zip.file(`icon-${icon.size}x${icon.size}.png`, blob);
+                          }
+                          const content = await zip.generateAsync({ type: 'blob' });
+                          const url = URL.createObjectURL(content);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = 'omni_icons_set.zip';
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                          setIsProcessing(false);
+                        } else if (activeStudio === 'branding' && result.data?.mode === 'social') {
+                          setIsProcessing(true);
+                          const zip = new JSZip();
+                          for (const asset of result.data.kit) {
+                             const response = await fetch(asset.url);
+                             const blob = await response.blob();
+                             const ext = asset.type === 'Profile' ? 'png' : 'jpg';
+                             zip.file(`brand_${asset.type.toLowerCase()}.${ext}`, blob);
+                          }
+                          const content = await zip.generateAsync({ type: 'blob' });
+                          const url = URL.createObjectURL(content);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = 'omni_social_kit.zip';
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                          setIsProcessing(false);
+                        } else if (activeStudio === 'branding' && result.data?.mode === 'icons') {
+                          setIsProcessing(true);
+                          const zip = new JSZip();
+                          for (const icon of result.data.icons) {
+                             const response = await fetch(icon.url);
+                             const blob = await response.blob();
+                             zip.file(`brand_icon_${icon.size}x${icon.size}.png`, blob);
+                          }
+                          const content = await zip.generateAsync({ type: 'blob' });
+                          const url = URL.createObjectURL(content);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = 'omni_brand_icons.zip';
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                          setIsProcessing(false);
                         } else {
                           const a = document.createElement('a');
                           a.href = result.url;
