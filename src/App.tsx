@@ -35,6 +35,8 @@ import * as three from './engine/threeEngine';
 import * as branding from './engine/brandingEngine';
 import * as mockup from './engine/mockupEngine';
 import * as video from './engine/videoEngine';
+import * as colorEngine from './engine/colorEngine';
+import type { PaletteMode } from './engine/colorEngine';
 
 // Translations
 import { translations } from './translations';
@@ -102,6 +104,8 @@ export default function App() {
   const [gameMode, setGameMode] = useState<'atlas' | 'simplify'>('atlas');
   const [qrText, setQrText] = useState('https://omni-studio.pro');
   const [qrColor, setQrColor] = useState('#007aff');
+  const [colorBase, setColorBase] = useState('#007aff');
+  const [colorPaletteMode, setColorPaletteMode] = useState<PaletteMode>('analogous');
   const [isRecordingMic, setIsRecordingMic] = useState(false);
   const micRecorderRef = useRef<MediaRecorder | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
@@ -245,7 +249,7 @@ export default function App() {
   };
 
   const processFiles = async (files: File[]) => {
-    if (files.length === 0 && activeStudio !== 'qr' && activeStudio !== '3d' && activeStudio !== 'screen') return;
+    if (files.length === 0 && activeStudio !== 'qr' && activeStudio !== '3d' && activeStudio !== 'screen' && activeStudio !== 'color') return;
 
     if (activeStudio === 'eraser' && files.length > 0) {
       const url = URL.createObjectURL(files[0]);
@@ -396,6 +400,16 @@ export default function App() {
         case 'eraser':
           // Handled manually via Magic Remove button
           return;
+        case 'color': {
+          const palette = colorEngine.generatePalette(colorBase, colorPaletteMode);
+          const dataUrl = await colorEngine.renderPaletteImage(palette, colorBase, colorPaletteMode);
+          // Convert data URL to blob URL
+          const res = await fetch(dataUrl);
+          const blob = await res.blob();
+          resultUrl = URL.createObjectURL(blob);
+          type = 'image';
+          break;
+        }
         case 'super-res':
           resultUrl = await visual.applyFilter(file, 'upscale');
           break;
@@ -607,6 +621,27 @@ export default function App() {
                       <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>UPLOAD LOGO TO GENERATE IOS/ANDROID SET</span>
                     </div>
                   )}
+                  {activeStudio === 'color' && (
+                    <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Palette size={16} color="var(--accent-primary)" />
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700 }}>BASE COLOR:</span>
+                        <input type="color" value={colorBase} onChange={(e) => setColorBase(e.target.value)} style={{ border: 'none', width: 36, height: 36, background: 'transparent', cursor: 'pointer', borderRadius: 8 }} />
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'monospace' }}>{colorBase.toUpperCase()}</span>
+                      </div>
+                      <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.1)' }} />
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {(['analogous', 'complementary', 'triadic', 'split', 'tetradic', 'monochromatic'] as PaletteMode[]).map(m => (
+                          <button key={m} onClick={() => setColorPaletteMode(m)} className={`badge ${colorPaletteMode === m ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer', textTransform: 'capitalize', fontSize: 10 }}>{m}</button>
+                        ))}
+                      </div>
+                      <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.1)' }} />
+                      <button onClick={() => processFiles([])} className="badge badge-purple" style={{ border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Palette size={13} /> Generate Palette
+                      </button>
+                    </div>
+                  )}
+
                   {activeStudio === 'document' && (
                     <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 12 }}>
                       <button onClick={() => setDocFormat('pdf')} className={`badge ${docFormat === 'pdf' ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer' }}>Images to PDF</button>
