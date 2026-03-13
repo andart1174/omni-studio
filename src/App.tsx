@@ -312,7 +312,8 @@ export default function App() {
           }
           break;
         case 'qr':
-          resultUrl = await qr.generateBrandedQR(qrText, qrColor);
+          const logoObjUrl = file ? URL.createObjectURL(file) : undefined;
+          resultUrl = await qr.generateBrandedQR(qrText, qrColor, logoObjUrl);
           break;
         case 'motion':
           resultUrl = await audiogram.generateAudiogram(file);

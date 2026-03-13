@@ -2,26 +2,26 @@
  * QR Engine - Branded QR Code Generation
  */
 
+import QRCode from 'qrcode';
+
 export async function generateBrandedQR(text: string, color: string = '#000000', logoUrl?: string): Promise<string> {
-    // We use an API for high-quality QR generation since a full generator is large
-    // But we'll implement a fallback/proxy to make it feel integrated
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=1000x1000&data=${encodeURIComponent(text)}&color=${color.replace('#', '')}&bgcolor=ffffff&format=png`;
+    try {
+        const qrCanvas = document.createElement('canvas');
+        await QRCode.toCanvas(qrCanvas, text, {
+            width: 1000,
+            margin: 1,
+            color: {
+                dark: color,
+                light: '#ffffff'
+            }
+        });
 
-    if (!logoUrl) return qrUrl;
+        if (!logoUrl) return qrCanvas.toDataURL('image/png');
 
-    return new Promise((resolve) => {
-        const qrImg = new Image();
-        qrImg.crossOrigin = "anonymous";
-        qrImg.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = 1000;
-            canvas.height = 1000;
-            const ctx = canvas.getContext('2d')!;
+        return new Promise((resolve) => {
+            const ctx = qrCanvas.getContext('2d');
+            if (!ctx) return resolve(qrCanvas.toDataURL('image/png'));
 
-            // Draw QR
-            ctx.drawImage(qrImg, 0, 0);
-
-            // Draw Logo in center
             const logo = new Image();
             logo.crossOrigin = "anonymous";
             logo.onload = () => {
@@ -29,17 +29,31 @@ export async function generateBrandedQR(text: string, color: string = '#000000',
                 const x = (1000 - logoSize) / 2;
                 const y = (1000 - logoSize) / 2;
 
-                // White buffer for logo
-                ctx.fillStyle = '#fff';
+                // Create a circular white cutout for the logo
+                ctx.fillStyle = '#ffffff';
                 ctx.beginPath();
-                ctx.roundRect(x - 10, y - 10, logoSize + 20, logoSize + 20, 30);
+                // Add a small padding around the logo
+                ctx.roundRect(x - 15, y - 15, logoSize + 30, logoSize + 30, 30);
+                // Can also use arc if we preferred circle: ctx.arc(500, 500, logoSize / 2 + 15, 0, Math.PI * 2)
                 ctx.fill();
 
+                // Draw logo with clipped rounded corners
+                ctx.save();
+                ctx.beginPath();
+                ctx.roundRect(x, y, logoSize, logoSize, 20);
+                ctx.clip();
                 ctx.drawImage(logo, x, y, logoSize, logoSize);
-                resolve(canvas.toDataURL('image/png'));
+                ctx.restore();
+
+                resolve(qrCanvas.toDataURL('image/png'));
+            };
+            logo.onerror = () => {
+                // If logo fails to load, just return base QR
+                resolve(qrCanvas.toDataURL('image/png'));
             };
             logo.src = logoUrl;
-        };
-        qrImg.src = qrUrl;
-    });
+        });
+    } catch (e: any) {
+        throw new Error("Failed to generate QR Code: " + e.message);
+    }
 }
