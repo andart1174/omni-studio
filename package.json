@@ -12,6 +12,7 @@
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
+    "@imgly/background-removal": "^1.7.0",
     "@types/katex": "^0.16.8",
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",

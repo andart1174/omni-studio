@@ -5,6 +5,22 @@
 export type FilterType = 'pencil' | 'anime' | 'pixel' | 'vintage' | 'blueprint' | 'remove-bg' | 'upscale' | 'eraser';
 
 export async function applyFilter(file: File, filterType: FilterType): Promise<string> {
+    if (filterType === 'remove-bg') {
+        try {
+            // Dynamic import reduces initial bundle size
+            const { removeBackground } = await import('@imgly/background-removal');
+            const blob = await removeBackground(file, {
+                // Settings to optimize performance
+                model: 'isnet_fp16',
+                output: { format: 'image/png' }
+            });
+            return URL.createObjectURL(blob);
+        } catch (e) {
+            console.error("BG Removal failed", e);
+            throw new Error("Background removal failed. Please check console.");
+        }
+    }
+
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -36,9 +52,6 @@ export async function applyFilter(file: File, filterType: FilterType): Promise<s
                         break;
                     case 'blueprint':
                         applyBlueprintFilter(imageData);
-                        break;
-                    case 'remove-bg':
-                        applyRemoveBackground(imageData);
                         break;
                     case 'upscale':
                         const upscaledCanvas = applyUpscale(img);
@@ -144,40 +157,6 @@ function applyBlueprintFilter(data: ImageData) {
             pixels[i] = 10;
             pixels[i + 1] = 50;
             pixels[i + 2] = 150; // Blue background
-        }
-    }
-}
-function applyRemoveBackground(data: ImageData) {
-    const pixels = data.data;
-    // Simple corner-pixel based background removal
-    // We sample the corners to get the "background" color
-    const corners = [
-        [pixels[0], pixels[1], pixels[2]],
-        [pixels[(data.width - 1) * 4], pixels[(data.width - 1) * 4 + 1], pixels[(data.width - 1) * 4 + 2]],
-        [pixels[(data.height - 1) * data.width * 4], pixels[(data.height - 1) * data.width * 4 + 1], pixels[(data.height - 1) * data.width * 4 + 2]],
-        [pixels[(data.width * data.height - 1) * 4], pixels[(data.width * data.height - 1) * 4 + 1], pixels[(data.width * data.height - 1) * 4 + 2]]
-    ];
-
-    // Average corner color
-    const bgR = corners.reduce((acc, c) => acc + c[0], 0) / 4;
-    const bgG = corners.reduce((acc, c) => acc + c[1], 0) / 4;
-    const bgB = corners.reduce((acc, c) => acc + c[2], 0) / 4;
-
-    const threshold = 40;
-
-    for (let i = 0; i < pixels.length; i += 4) {
-        const r = pixels[i];
-        const g = pixels[i + 1];
-        const b = pixels[i + 2];
-
-        const diff = Math.sqrt(
-            Math.pow(r - bgR, 2) +
-            Math.pow(g - bgG, 2) +
-            Math.pow(b - bgB, 2)
-        );
-
-        if (diff < threshold) {
-            pixels[i + 3] = 0; // Transparent
         }
     }
 }
