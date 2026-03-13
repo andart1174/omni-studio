@@ -16,6 +16,7 @@ import * as privacy from './engine/privacyEngine';
 import * as security from './engine/securityEngine';
 import * as codeEngine from './engine/codeEngine';
 import * as architecture from './engine/architectureEngine';
+import * as game from './engine/gameEngine';
 import * as fontEngine from './engine/fontEngine';
 import * as seo from './engine/seoEngine';
 import * as mathModule from './engine/mathEngine';
@@ -97,6 +98,7 @@ export default function App() {
   const [mockupTemplate, setMockupTemplate] = useState<mockup.MockupTemplate>('iphone');
   const [analyticsMode, setAnalyticsMode] = useState<analytics.ChartType>('bar');
   const [cyberMode, setCyberMode] = useState<'ascii' | 'hash' | 'password'>('ascii');
+  const [gameMode, setGameMode] = useState<'atlas' | 'simplify'>('atlas');
   const [qrText, setQrText] = useState('https://omni-studio.pro');
   const [qrColor, setQrColor] = useState('#007aff');
   const [isRecordingMic, setIsRecordingMic] = useState(false);
@@ -382,6 +384,13 @@ export default function App() {
         case 'bg-remover':
           resultUrl = await visual.applyFilter(file, 'remove-bg');
           break;
+        case 'game':
+          if (gameMode === 'atlas') {
+            resultUrl = await game.createSpriteAtlas(files);
+          } else {
+            resultUrl = await game.simplifyTexture(file);
+          }
+          break;
         case 'eraser':
           // Handled manually via Magic Remove button
           return;
@@ -564,6 +573,13 @@ export default function App() {
                     <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 8 }}>
                       {['iphone', 'macbook', 'billboard', 'shirt', 'mug', 'bag'].map(t => (
                         <button key={t} onClick={() => setMockupTemplate(t as mockup.MockupTemplate)} className={`badge ${mockupTemplate === t ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: 1, fontSize: 10 }}>{t}</button>
+                      ))}
+                    </div>
+                  )}
+                  {activeStudio === 'game' && (
+                    <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 8 }}>
+                      {['atlas', 'simplify'].map(m => (
+                        <button key={m} onClick={() => setGameMode(m as any)} className={`badge ${gameMode === m ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer', textTransform: 'capitalize' }}>{m}</button>
                       ))}
                     </div>
                   )}
