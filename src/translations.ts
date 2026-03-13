@@ -135,6 +135,26 @@ export const translations: Record<Language, any> = {
                 name: "Background Remover",
                 description: "AI Background Removal",
                 howToUse: "Upload an image and the AI will automatically remove the background, leaving you with a clean, transparent PNG."
+            },
+            'eraser': {
+                name: "Magic Eraser",
+                description: "AI Object Removal",
+                howToUse: "Upload an image and use the brush to highlight objects you want to remove. The AI will seamlessly fill in the background."
+            },
+            'screen': {
+                name: "Screen Studio",
+                description: "Integrated Screen Recorder",
+                howToUse: "Click 'Start Recording' to capture your screen or webcam. Once finished, you can download the high-quality video clip."
+            },
+            'icon': {
+                name: "Icon Studio",
+                description: "App Icon Set Generator",
+                howToUse: "Upload your brand logo and we'll generate a complete set of optimized icons for iOS, Android, and Web."
+            },
+            'super-res': {
+                name: "Super Res",
+                description: "AI Image Upscaler",
+                howToUse: "Upload a low-resolution image to upscale it to 4K resolution using AI, enhancing clarity and reducing pixelation."
             }
         }
     },
@@ -266,6 +286,26 @@ export const translations: Record<Language, any> = {
                 name: "Suppresseur de Fond",
                 description: "Suppression d'Arrière-plan IA",
                 howToUse: "Téléchargez une image et l'IA supprimera automatiquement l'arrière-plan, vous laissant un PNG transparent propre."
+            },
+            'eraser': {
+                name: "Gomme Magique",
+                description: "Suppression d'Objets par IA",
+                howToUse: "Téléchargez une image et utilisez le pinceau pentru a evidenția obiectele pe care doriți să le eliminați. IA va completa fundalul perfect."
+            },
+            'screen': {
+                name: "Studio Écran",
+                description: "Enregistreur d'Écran Intégré",
+                howToUse: "Cliquez pe 'Start Recording' pentru a captura ecranul sau camera web. După terminare, puteți descărca clipul video de înaltă calitate."
+            },
+            'icon': {
+                name: "Studio d'Icônes",
+                description: "Générateur de Jeu d'Icônes App",
+                howToUse: "Téléchargez votre logo de marque și vom genera un set complet de pictograme optimizate pentru iOS, Android și Web."
+            },
+            'super-res': {
+                name: "Super Résolution",
+                description: "Mise à l'Échelle d'Image IA",
+                howToUse: "Téléchargez une image de basse résolution pentru a o mări la rezoluție 4K folosind IA, îmbunătățind claritatea și reducând pixelarea."
             }
         }
     }

@@ -372,7 +372,7 @@ export default function App() {
           type = 'text';
           break;
         case 'font':
-          resultUrl = await fontEngine.svgToFont([{ name: file.name, path: 'M 10 10 L 90 90' }]);
+          resultUrl = await fontEngine.svgFileToFont(file);
           type = 'font';
           break;
         case 'seo':
@@ -895,7 +895,14 @@ export default function App() {
                             <iframe src={result.url} style={{ width: '100%', height: '100%', border: 'none', padding: 20 }} title="Result" />
                           </div>
                         )}
-                        {result.type === 'font' && <div style={{ textAlign: 'center', color: '#fff' }}><Type size={100} /><h3>Font Ready</h3></div>}
+                        {result.type === 'font' && (
+                          <div style={{ textAlign: 'center', color: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+                            <Type size={80} color="var(--accent-primary)" />
+                            <h3 style={{ margin: 0 }}>Font Ready to Download</h3>
+                            <p style={{ color: 'var(--text-muted)', fontSize: 13, maxWidth: 360 }}>Your SVG paths have been packaged into a font file. Click <strong>Download</strong> above to save the <code>.ttf</code> font.</p>
+                            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', fontFamily: 'monospace', background: 'rgba(255,255,255,0.05)', padding: '8px 20px', borderRadius: 8 }}>OmniFont.ttf exported</div>
+                          </div>
+                        )}
                         {result.type === 'branding' && result.data && (
                           <div style={{ width: '100%', height: '100%', padding: 40, overflowY: 'auto' }}>
                             {result.data.mode === 'palette' && (
