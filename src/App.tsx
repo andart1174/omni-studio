@@ -5,10 +5,11 @@ import {
   Sigma, Palette, Upload, Download,
   Menu, X, Sparkles, Copy, RefreshCcw,
   Image as ImageIcon, ScanText, FileText, Table,
-  Mic, Box as BoxIcon, Eye, Monitor, Scissors, Sun, Moon, History, QrCode
+  Mic, Box as BoxIcon, Eye, Monitor, Scissors, Sun, Moon, History, QrCode,
+  Eraser, Maximize, MonitorPlay
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import * as confetti from 'canvas-confetti';
+import confetti from 'canvas-confetti';
 
 // Engines
 import * as privacy from './engine/privacyEngine';
@@ -17,8 +18,7 @@ import * as codeEngine from './engine/codeEngine';
 import * as architecture from './engine/architectureEngine';
 import * as fontEngine from './engine/fontEngine';
 import * as seo from './engine/seoEngine';
-// import * as game from './engine/gameEngine'; // Unused
-import * as math from './engine/mathEngine';
+import * as mathModule from './engine/mathEngine';
 import * as visual from './engine/visualEngine';
 import * as analytics from './engine/analyticsEngine';
 import * as cyber from './engine/cyberEngine';
@@ -32,6 +32,7 @@ import * as audio from './engine/audioEngine';
 import * as three from './engine/threeEngine';
 import * as branding from './engine/brandingEngine';
 import * as mockup from './engine/mockupEngine';
+import * as video from './engine/videoEngine';
 
 // Translations
 import { translations } from './translations';
@@ -42,7 +43,7 @@ type StudioID =
   | 'privacy' | 'architecture' | 'font' | 'seo'
   | 'game' | 'automation' | 'code' | 'security'
   | 'math' | 'color' | 'visual' | 'ocr'
-  | 'document' | 'data' | 'audio' | '3d' | 'branding' | 'mockup' | 'analytics' | 'cyber' | 'qr' | 'motion' | 'pdf' | 'bg-remover';
+  | 'document' | 'data' | 'audio' | '3d' | 'branding' | 'mockup' | 'analytics' | 'cyber' | 'qr' | 'motion' | 'pdf' | 'bg-remover' | 'eraser' | 'screen' | 'icon' | 'super-res';
 
 interface Studio {
   id: StudioID;
@@ -53,6 +54,10 @@ const studios: Studio[] = [
   { id: 'motion', icon: <RefreshCcw size={16} /> },
   { id: 'pdf', icon: <FileText size={16} /> },
   { id: 'bg-remover', icon: <Scissors size={16} /> },
+  { id: 'eraser', icon: <Eraser size={16} /> },
+  { id: 'super-res', icon: <Maximize size={16} /> },
+  { id: 'screen', icon: <MonitorPlay size={16} /> },
+  { id: 'icon', icon: <ImageIcon size={16} /> },
   { id: 'analytics', icon: <LayoutDashboard size={16} /> },
   { id: 'qr', icon: <QrCode size={16} /> },
   { id: 'cyber', icon: <ShieldAlert size={16} /> },
@@ -81,7 +86,7 @@ export default function App() {
   const [language, setLanguage] = useState<Language>('en');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [result, setResult] = useState<{ url: string, type: 'image' | 'text' | 'font' | 'svg' | '3d' | 'audio' | 'video' | 'branding', data?: any, file?: File } | null>(null);
+  const [result, setResult] = useState<{ url: string, type: 'image' | 'text' | 'font' | 'svg' | '3d' | 'audio' | 'video' | 'branding' | 'pdf' | 'docx', data?: any, file?: File } | null>(null);
   const [inputText, setInputText] = useState('');
   const [password] = useState('admin123'); // For now, hardcoded
   const [selectedFilter, setSelectedFilter] = useState<visual.FilterType>('pencil');
@@ -101,13 +106,40 @@ export default function App() {
   const [history, setHistory] = useState<any[]>([]);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [showHistory, setShowHistory] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [screenCapture, setScreenCapture] = useState<{ stream: MediaStream, recorder: MediaRecorder } | null>(null);
+  const [upscaleFactor, setUpscaleFactor] = useState(2);
+  const [brushSize, setBrushSize] = useState(40);
+  const eraserCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
   const threeContainerRef = useRef<HTMLDivElement>(null);
   const audioCanvasRef = useRef<HTMLCanvasElement>(null);
 
-  useEffect(() => {
-    // Clear result when switching studios to prevent mismatch
-    setResult(null);
-  }, [activeStudio]);
+  // Optimized studio switching
+  const switchStudio = (id: StudioID, newResult: any = null) => {
+    setActiveStudio(id);
+    setResult(newResult);
+  };
+
+  const getDownloadFilename = (studio: string, type: string) => {
+    const base = `omni_${studio}_result`;
+    if (studio === 'pdf') return `${base}.pdf`;
+    if (studio === 'ocr') return `${base}.txt`;
+    if (studio === 'document') return docFormat === 'pdf' ? `${base}.pdf` : `${base}.docx`;
+    if (studio === 'data') return `${base}.json`;
+    if (studio === 'security') return `${base}.enc`;
+
+    switch (type) {
+      case 'image': return `${base}.png`;
+      case 'video': return `${base}.webm`;
+      case 'audio': return `${base}.webm`;
+      case 'text': return `${base}.txt`;
+      case 'svg': return `${base}.svg`;
+      case '3d': return `${base}.obj`;
+      case 'font': return `${base}.ttf`;
+      default: return base;
+    }
+  };
 
   const t = translations[language];
   const s = t.studios[activeStudio];
@@ -189,8 +221,34 @@ export default function App() {
     }
   };
 
+  const handleScreenCapture = async () => {
+    if (!isRecording) {
+      try {
+        const { stream, recorder } = await video.startScreenCapture();
+        setScreenCapture({ stream, recorder });
+        setIsRecording(true);
+        recorder.start();
+      } catch (e) {
+        console.error("Screen capture failed:", e);
+      }
+    } else if (screenCapture) {
+      const blob = await video.stopScreenCapture(screenCapture.stream, screenCapture.recorder);
+      const url = URL.createObjectURL(blob);
+      setResult({ url, type: 'video' });
+      setScreenCapture(null);
+      setIsRecording(false);
+      confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+    }
+  };
+
   const processFiles = async (files: File[]) => {
-    if (files.length === 0 && activeStudio !== 'qr' && activeStudio !== '3d') return;
+    if (files.length === 0 && activeStudio !== 'qr' && activeStudio !== '3d' && activeStudio !== 'screen') return;
+
+    if (activeStudio === 'eraser' && files.length > 0) {
+      const url = URL.createObjectURL(files[0]);
+      setResult({ url, type: 'image', file: files[0] });
+      return;
+    }
     setIsProcessing(true);
     // Track local active studio to prevent race conditions
     const processingStudio = activeStudio;
@@ -198,7 +256,7 @@ export default function App() {
 
     try {
       let resultUrl = '';
-      let type: 'image' | 'text' | 'font' | 'svg' | '3d' | 'audio' | 'video' | 'branding' = 'image';
+      let type: 'image' | 'text' | 'font' | 'svg' | '3d' | 'audio' | 'video' | 'branding' | 'pdf' | 'docx' = 'image';
 
       switch (activeStudio) {
         case 'privacy':
@@ -259,6 +317,7 @@ export default function App() {
           break;
         case 'pdf':
           resultUrl = await pdfEngine.mergeImagesToPDF(files);
+          type = 'pdf';
           break;
         case 'ocr':
           const extractedText = await ocr.extractText(file);
@@ -268,9 +327,11 @@ export default function App() {
         case 'document':
           if (docFormat === 'pdf') {
             resultUrl = await doc.imagesToPdf(files);
+            type = 'pdf';
           } else {
             const txt = await file.text();
             resultUrl = await doc.textToDocx(txt);
+            type = 'docx';
           }
           break;
         case 'data':
@@ -315,12 +376,25 @@ export default function App() {
           break;
         case 'math':
           const tex = await file.text();
-          resultUrl = await math.texToSvg(tex);
+          resultUrl = await mathModule.texToSvg(tex);
           type = 'svg';
           break;
         case 'bg-remover':
           resultUrl = await visual.applyFilter(file, 'remove-bg');
           break;
+        case 'eraser':
+          // Handled manually via Magic Remove button
+          return;
+        case 'super-res':
+          resultUrl = await visual.applyFilter(file, 'upscale');
+          break;
+        case 'icon':
+          const icons = await branding.generateAppIconSet(file);
+          setResult({ url: icons[icons.length - 1].url, type: 'image', data: icons });
+          setHistory(prev => [{ url: icons[icons.length - 1].url, type: 'image', studio: activeStudio, time: new Date().toLocaleTimeString() }, ...prev].slice(0, 10));
+          setIsProcessing(false);
+          confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+          return;
         default:
           resultUrl = URL.createObjectURL(file);
       }
@@ -363,7 +437,7 @@ export default function App() {
           {studios.map((studio) => (
             <div
               key={studio.id}
-              onClick={() => { setActiveStudio(studio.id); setResult(null); }}
+              onClick={() => switchStudio(studio.id)}
               className={`nav-item ${activeStudio === studio.id ? 'active' : ''}`}
             >
               <div className="icon-wrapper">{studio.icon}</div>
@@ -434,7 +508,7 @@ export default function App() {
                   <h4 style={{ color: '#fff', fontSize: 12, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 }}>Recent Results</h4>
                   <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 10 }}>
                     {history.map((h, i) => (
-                      <div key={i} onClick={() => { setActiveStudio(h.studio); setResult(h); }} style={{ minWidth: 80, cursor: 'pointer', textAlign: 'center' }}>
+                      <div key={i} onClick={() => switchStudio(h.studio, h)} style={{ minWidth: 80, cursor: 'pointer', textAlign: 'center' }}>
                         <div style={{ width: 60, height: 60, background: 'rgba(255,255,255,0.05)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 6px' }}>
                           {h.type === 'image' ? <img src={h.url} style={{ width: '80%', height: '80%', objectFit: 'cover' }} /> : <FileText size={24} color="var(--accent-primary)" />}
                         </div>
@@ -448,11 +522,71 @@ export default function App() {
               {!result ? (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
                   {/* Contextual Utility Bars */}
+                  {activeStudio === 'eraser' && (
+                    <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 16, alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Brush Size:</span>
+                        <input type="range" min="10" max="100" value={brushSize} onChange={(e) => setBrushSize(Number(e.target.value))} style={{ width: 100 }} />
+                      </div>
+                      <button onClick={async () => {
+                        if (!eraserCanvasRef.current) return;
+                        setIsProcessing(true);
+                        const canvas = eraserCanvasRef.current;
+                        // Capture current canvas state
+                        const blob = await new Promise<Blob>(r => canvas.toBlob(b => r(b!), 'image/png'));
+                        const file = new File([blob], 'masked.png', { type: 'image/png' });
+                        const resultUrl = await visual.applyFilter(file, 'eraser');
+
+                        // Update state and history
+                        setResult({ url: resultUrl, type: 'image' });
+                        setHistory(prev => [{
+                          id: Date.now(),
+                          studio: 'eraser',
+                          type: 'image',
+                          url: resultUrl,
+                          time: new Date().toLocaleTimeString()
+                        }, ...prev].slice(0, 20));
+
+                        setIsProcessing(false);
+                        confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+                      }} className="badge badge-purple" style={{ border: 'none', cursor: 'pointer' }}>Magic Remove</button>
+                      <button onClick={() => setResult(null)} className="badge badge-blue" style={{ border: 'none', cursor: 'pointer' }}>Reset</button>
+                    </div>
+                  )}
                   {activeStudio === 'visual' && (
                     <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 8 }}>
                       {['pencil', 'anime', 'pixel', 'vintage', 'blueprint'].map(f => (
                         <button key={f} onClick={() => setSelectedFilter(f as any)} className={`badge ${selectedFilter === f ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer', textTransform: 'capitalize' }}>{f}</button>
                       ))}
+                    </div>
+                  )}
+                  {activeStudio === 'mockup' && (
+                    <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 8 }}>
+                      {['iphone', 'macbook', 'billboard', 'shirt', 'mug', 'bag'].map(t => (
+                        <button key={t} onClick={() => setMockupTemplate(t as mockup.MockupTemplate)} className={`badge ${mockupTemplate === t ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: 1, fontSize: 10 }}>{t}</button>
+                      ))}
+                    </div>
+                  )}
+                  {activeStudio === 'super-res' && (
+                    <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, color: 'var(--text-main)' }}>Upscale Factor:</span>
+                      <select value={upscaleFactor} onChange={(e) => setUpscaleFactor(Number(e.target.value))} style={{ background: 'transparent', border: '1px solid var(--glass-border)', color: 'var(--text-main)', borderRadius: 4, padding: '2px 8px' }}>
+                        <option value={2}>2x (HD)</option>
+                        <option value={4}>4x (4K)</option>
+                      </select>
+                    </div>
+                  )}
+                  {activeStudio === 'screen' && (
+                    <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
+                      <button onClick={handleScreenCapture} className={`badge ${isRecording ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ width: 8, height: 8, background: 'red', borderRadius: '50%', animation: isRecording ? 'pulse 1s infinite' : 'none' }} />
+                        {isRecording ? 'Stop Recording' : 'Start Recording'}
+                      </button>
+                    </div>
+                  )}
+                  {activeStudio === 'icon' && (
+                    <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
+                      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>UPLOAD LOGO TO GENERATE IOS/ANDROID SET</span>
                     </div>
                   )}
                   {activeStudio === 'document' && (
@@ -501,13 +635,6 @@ export default function App() {
                         <Mic size={14} /> {isRecordingMic ? 'Stop Recording' : 'Start Mic Recording'}
                       </button>
                       <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>OR UPLOAD MP3 BELOW</span>
-                    </div>
-                  )}
-                  {activeStudio === 'mockup' && (
-                    <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 8 }}>
-                      {(['iphone', 'macbook', 'billboard', 'shirt', 'mug', 'bag'] as mockup.MockupTemplate[]).map(t => (
-                        <button key={t} onClick={() => setMockupTemplate(t)} className={`badge ${mockupTemplate === t ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: 1, fontSize: 10 }}>{t}</button>
-                      ))}
                     </div>
                   )}
                   {activeStudio === 'branding' && (
@@ -591,19 +718,46 @@ export default function App() {
                     </div>
                     <div style={{ display: 'flex', gap: 12 }}>
                       <button onClick={() => setResult(null)} className="badge badge-blue" style={{ border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}><X size={14} /> Close</button>
-                      <a href={result.url} download={`omni_${activeStudio}_result`} className="badge badge-purple" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <button onClick={async () => {
+                        if (activeStudio === 'eraser' && eraserCanvasRef.current) {
+                          const blob = await new Promise<Blob>(r => eraserCanvasRef.current!.toBlob(b => r(b!), 'image/png'));
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = getDownloadFilename(activeStudio, result.type);
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                        } else {
+                          const a = document.createElement('a');
+                          a.href = result.url;
+                          a.download = getDownloadFilename(activeStudio, result.type);
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                        }
+                      }} className="badge badge-purple" style={{ border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                         <Download size={14} /> Download
-                      </a>
+                      </button>
                     </div>
                   </div>
 
                   <div className="glass" style={{ flex: 1, borderRadius: '0 0 32px 32px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', position: 'relative', minHeight: 0 }}>
-                    {result.type === '3d' ? (
-                      <div ref={threeContainerRef} style={{ width: '100%', height: '100%' }} />
-                    ) : result.type === 'video' ? (
-                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <video src={result.url} controls autoPlay loop style={{ maxWidth: '90%', maxHeight: '90%', borderRadius: 20 }} />
+                    {result.type === 'image' && result.data && activeStudio === 'icon' ? (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 16 }}>
+                        {result.data.map((icon: any, i: number) => (
+                          <div key={i} className="glass" style={{ padding: 12, borderRadius: 16, textAlign: 'center' }}>
+                            <img src={icon.url} style={{ width: 64, height: 64, borderRadius: 12, marginBottom: 8 }} />
+                            <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{icon.size}x{icon.size}</div>
+                            <a href={icon.url} download={`icon-${icon.size}.png`} className="badge badge-blue" style={{ textDecoration: 'none', fontSize: 8, marginTop: 4, display: 'inline-block' }}>DL</a>
+                          </div>
+                        ))}
                       </div>
+                    ) : result.type === 'video' ? (
+                      <video src={result.url} controls style={{ width: '100%', borderRadius: 16, maxHeight: '60vh' }} />
+                    ) : result.type === '3d' ? (
+                      <div ref={threeContainerRef} style={{ width: '100%', height: '100%' }} />
                     ) : result.type === 'audio' ? (
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, width: '100%' }}>
                         <canvas ref={audioCanvasRef} width={600} height={200} style={{ width: '80%', height: 200, borderRadius: 16 }} />
@@ -611,11 +765,60 @@ export default function App() {
                       </div>
                     ) : (
                       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                        {result.type === 'image' && <img src={result.url} style={{ maxWidth: '95%', maxHeight: '95%', objectFit: 'contain', filter: 'drop-shadow(0 20px 50px rgba(0,0,0,0.5))' }} alt="Result" />}
+                        {result.type === 'image' && activeStudio === 'eraser' ? (
+                          <div style={{ position: 'relative', maxWidth: '100%', maxHeight: '100%' }}>
+                            <canvas
+                              ref={eraserCanvasRef}
+                              onMouseDown={(e) => {
+                                setIsDrawing(true);
+                                const canvas = eraserCanvasRef.current!;
+                                const ctx = canvas.getContext('2d')!;
+                                const rect = canvas.getBoundingClientRect();
+                                const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+                                const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+                                ctx.beginPath();
+                                ctx.moveTo(x, y);
+                              }}
+                              onMouseMove={(e) => {
+                                if (!isDrawing || !eraserCanvasRef.current) return;
+                                const canvas = eraserCanvasRef.current;
+                                const ctx = canvas.getContext('2d')!;
+                                const rect = canvas.getBoundingClientRect();
+                                const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+                                const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+                                ctx.lineCap = 'round';
+                                ctx.lineJoin = 'round';
+                                ctx.strokeStyle = 'white';
+                                ctx.lineWidth = brushSize;
+                                ctx.lineTo(x, y);
+                                ctx.stroke();
+                              }}
+                              onMouseUp={() => setIsDrawing(false)}
+                              onMouseLeave={() => setIsDrawing(false)}
+                              style={{ maxWidth: '100%', maxHeight: '80vh', cursor: 'crosshair', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}
+                            />
+                            {/* Hidden Image for Initial Load */}
+                            <img
+                              src={result.url}
+                              onLoad={(e) => {
+                                const img = e.currentTarget;
+                                const canvas = eraserCanvasRef.current!;
+                                const ctx = canvas.getContext('2d')!;
+                                canvas.width = img.naturalWidth;
+                                canvas.height = img.naturalHeight;
+                                ctx.drawImage(img, 0, 0);
+                              }}
+                              style={{ display: 'none' }}
+                            />
+                            <div style={{ position: 'absolute', bottom: -30, left: '50%', transform: 'translateX(-50%)', fontSize: 10, color: 'var(--text-muted)', fontWeight: 700 }}>BRUSH OVER OBJECTS AND CLICK MAGIC REMOVE</div>
+                          </div>
+                        ) : result.type === 'image' && (
+                          <img src={result.url} style={{ maxWidth: '95%', maxHeight: '95%', objectFit: 'contain', filter: 'drop-shadow(0 20px 50px rgba(0,0,0,0.5))' }} alt="Result" />
+                        )}
                         {result.type === 'svg' && <img src={result.url} style={{ maxWidth: '80%' }} alt="Result" />}
                         {result.type === 'text' && (
                           <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-                            <button onClick={() => { fetch(result.url).then(r => r.text()).then(t => navigator.clipboard.writeText(t)); confetti({ particleCount: 20 }); }} className="badge badge-blue" style={{ position: 'absolute', top: 20, right: 20, border: 'none', cursor: 'pointer', zIndex: 5 }}><Copy size={14} /> Copy</button>
+                            <button onClick={() => { if (result) { fetch(result.url).then(r => r.text()).then(t => navigator.clipboard.writeText(t)); confetti({ particleCount: 20 }); } }} className="badge badge-blue" style={{ position: 'absolute', top: 20, right: 20, border: 'none', cursor: 'pointer', zIndex: 5 }}><Copy size={14} /> Copy</button>
                             <iframe src={result.url} style={{ width: '100%', height: '100%', border: 'none', padding: 20 }} title="Result" />
                           </div>
                         )}
