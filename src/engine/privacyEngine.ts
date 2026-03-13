@@ -21,57 +21,48 @@ export const detectAndBlurSensitiveData = async (
         const objectUrl = URL.createObjectURL(file);
 
         img.onload = async () => {
-            console.log("[PrivacyEngine] Image loaded, dimensions:", img.width, "x", img.height);
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) {
-                URL.revokeObjectURL(objectUrl);
-                return reject(new Error("Canvas context creation failed"));
-            }
+             console.log("[PrivacyEngine] Image loaded, dimensions:", img.width, "x", img.height);
+             const canvas = document.createElement('canvas');
+             canvas.width = img.width;
+             canvas.height = img.height;
+             const ctx = canvas.getContext('2d');
+             if (!ctx) {
+                 URL.revokeObjectURL(objectUrl);
+                 return reject(new Error("Canvas context failed"));
+             }
+             ctx.drawImage(img, 0, 0);
 
-            ctx.drawImage(img, 0, 0);
-
-            try {
-                console.log("[PrivacyEngine] Initializing Tesseract...");
-                const result = await Tesseract.recognize(img, 'eng', {
-                    logger: m => console.log("[Tesseract]", m.status, (m.progress * 100).toFixed(2) + "%")
-                });
-
-                const words = (result as any).data.words;
-                console.log("[PrivacyEngine] Tesseract finished. Words found:", words.length);
-
-                let sensitiveCount = 0;
-                words.forEach((word: any) => {
-                    const isSensitive = patterns.some(pattern => pattern.test(word.text));
-                    if (isSensitive) {
-                        sensitiveCount++;
-                        const { x0, y0, x1, y1 } = word.bbox;
-                        blurArea(ctx, x0, y0, x1 - x0, y1 - y0);
-                    }
-                });
-                console.log("[PrivacyEngine] Blurring complete. Sensitive areas found:", sensitiveCount);
-
-                canvas.toBlob((blob) => {
-                    URL.revokeObjectURL(objectUrl);
-                    if (blob) {
-                        resolve(URL.createObjectURL(blob));
-                    } else {
-                        reject(new Error("Failed to create blob from canvas"));
-                    }
-                }, 'image/jpeg', 0.9);
-            } catch (err) {
-                console.error("[PrivacyEngine] Tesseract Error:", err);
-                URL.revokeObjectURL(objectUrl);
-                reject(err);
-            }
+             try {
+                 const result = await Tesseract.recognize(img, 'eng');
+                 const words = (result as any).data.words;
+                 
+                 let sensitiveCount = 0;
+                 words.forEach((word: any) => {
+                     const isSensitive = patterns.some(pattern => pattern.test(word.text));
+                     if (isSensitive) {
+                         sensitiveCount++;
+                         const { x0, y0, x1, y1 } = word.bbox;
+                         blurArea(ctx, x0, y0, x1 - x0, y1 - y0);
+                     }
+                 });
+                 
+                 canvas.toBlob((blob) => {
+                     URL.revokeObjectURL(objectUrl);
+                     if (blob) {
+                         resolve(URL.createObjectURL(blob));
+                     } else {
+                         reject(new Error("Blob failed"));
+                     }
+                 }, 'image/jpeg', 0.9);
+             } catch (err) {
+                 URL.revokeObjectURL(objectUrl);
+                 reject(err);
+             }
         };
 
-        img.onerror = (err) => {
-            console.error("[PrivacyEngine] Image Load Error:", err);
+        img.onerror = () => {
             URL.revokeObjectURL(objectUrl);
-            reject(new Error("Failed to load image file"));
+            reject(new Error("Failed to load image"));
         };
         img.src = objectUrl;
     });

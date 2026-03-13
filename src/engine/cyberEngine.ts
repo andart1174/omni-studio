@@ -3,13 +3,14 @@
  */
 
 export async function imageToASCII(file: File, width: number = 100): Promise<string> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (e) => {
             const img = new Image();
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d')!;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return reject(new Error("Canvas failure"));
                 const height = (img.height / img.width) * width * 0.5; // Adjusted for font aspect ratio
                 canvas.width = width;
                 canvas.height = height;
@@ -31,8 +32,10 @@ export async function imageToASCII(file: File, width: number = 100): Promise<str
                 }
                 resolve(ascii);
             };
+            img.onerror = () => reject(new Error("Failed to load image"));
             img.src = e.target?.result as string;
         };
+        reader.onerror = () => reject(new Error("Failed to read file"));
         reader.readAsDataURL(file);
     });
 }

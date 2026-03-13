@@ -2,7 +2,7 @@
  * Visual Engine - Provides artistic filters and image transformations
  */
 
-export type FilterType = 'pencil' | 'anime' | 'pixel' | 'vintage' | 'blueprint' | 'remove-bg';
+export type FilterType = 'pencil' | 'anime' | 'pixel' | 'vintage' | 'blueprint' | 'remove-bg' | 'upscale' | 'eraser';
 
 export async function applyFilter(file: File, filterType: FilterType): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -29,8 +29,7 @@ export async function applyFilter(file: File, filterType: FilterType): Promise<s
                         break;
                     case 'pixel':
                         applyPixelFilter(ctx, img, canvas.width, canvas.height);
-                        // pixel filter handles its own image data
-                        resolve(canvas.toDataURL('image/png'));
+                        canvas.toBlob(blob => resolve(URL.createObjectURL(blob!)), 'image/png');
                         return;
                     case 'vintage':
                         applyVintageFilter(imageData);
@@ -41,10 +40,17 @@ export async function applyFilter(file: File, filterType: FilterType): Promise<s
                     case 'remove-bg':
                         applyRemoveBackground(imageData);
                         break;
+                    case 'upscale':
+                        const upscaledCanvas = applyUpscale(img);
+                        upscaledCanvas.toBlob(blob => resolve(URL.createObjectURL(blob!)), 'image/png');
+                        return;
+                    case 'eraser':
+                        applyMagicEraser(imageData);
+                        break;
                 }
 
                 ctx.putImageData(imageData, 0, 0);
-                resolve(canvas.toDataURL('image/png'));
+                canvas.toBlob(blob => resolve(URL.createObjectURL(blob!)), 'image/png');
             };
             img.onerror = reject;
             img.src = e.target?.result as string;
@@ -172,6 +178,67 @@ function applyRemoveBackground(data: ImageData) {
 
         if (diff < threshold) {
             pixels[i + 3] = 0; // Transparent
+        }
+    }
+}
+
+function applyUpscale(img: HTMLImageElement): HTMLCanvasElement {
+    const scale = 2; // 2x Upscale
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width * scale;
+    canvas.height = img.height * scale;
+    const ctx = canvas.getContext('2d')!;
+
+    // Simple Lanczos-like simulation using smooth scaling
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    return canvas;
+}
+
+export function applyMagicEraser(data: ImageData) {
+    const pixels = data.data;
+    const width = data.width;
+    const height = data.height;
+
+    // Multi-pass simulation for smoother transition - increased to 50 passes
+    for (let pass = 0; pass < 50; pass++) {
+        for (let y = 1; y < height - 1; y++) {
+            for (let x = 1; x < width - 1; x++) {
+                const i = (y * width + x) * 4;
+
+                // Check if mask (very bright)
+                if (pixels[i] > 240 && pixels[i + 1] > 240 && pixels[i + 2] > 240) {
+                    // Average neighbors (simple blur/patch simulation)
+                    let totalR = 0, totalG = 0, totalB = 0, count = 0;
+
+                    const neighbors = [
+                        ((y - 1) * width + x) * 4,
+                        ((y + 1) * width + x) * 4,
+                        (y * width + (x - 1)) * 4,
+                        (y * width + (x + 1)) * 4
+                    ];
+
+                    for (const n of neighbors) {
+                        // Only average with non-mask pixels (or previously healed pixels)
+                        if (pixels[n] <= 240 || pixels[n + 1] <= 240 || pixels[n + 2] <= 240) {
+                            totalR += pixels[n];
+                            totalG += pixels[n + 1];
+                            totalB += pixels[n + 2];
+                            count++;
+                        }
+                    }
+
+                    if (count > 0) {
+                        pixels[i] = totalR / count;
+                        pixels[i + 1] = totalG / count;
+                        pixels[i + 2] = totalB / count;
+                        // Keep alpha as is or set to opaque
+                        pixels[i + 3] = 255;
+                    }
+                }
+            }
         }
     }
 }

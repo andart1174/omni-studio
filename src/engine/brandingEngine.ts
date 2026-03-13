@@ -124,15 +124,17 @@ export async function generateAppIconSet(file: File): Promise<{ size: number, ur
     const sizes = [16, 32, 64, 128, 512, 1024];
     const results: { size: number, url: string }[] = [];
 
-    const reader = new FileReader();
-    const dataUrl = await new Promise<string>((resolve) => {
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
         reader.onload = (e) => resolve(e.target?.result as string);
+        reader.onerror = () => reject(new Error("Failed to read file"));
         reader.readAsDataURL(file);
     });
 
-    const img = await new Promise<HTMLImageElement>((resolve) => {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
         const i = new Image();
         i.onload = () => resolve(i);
+        i.onerror = () => reject(new Error("Failed to load image"));
         i.src = dataUrl;
     });
 
@@ -140,9 +142,11 @@ export async function generateAppIconSet(file: File): Promise<{ size: number, ur
         const canvas = document.createElement('canvas');
         canvas.width = size;
         canvas.height = size;
-        const ctx = canvas.getContext('2d')!;
-        ctx.drawImage(img, 0, 0, size, size);
-        results.push({ size, url: canvas.toDataURL('image/png') });
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+             ctx.drawImage(img, 0, 0, size, size);
+             results.push({ size, url: canvas.toDataURL('image/png') });
+        }
     }
 
     return results;
@@ -156,13 +160,15 @@ export async function socialKit(file: File): Promise<{ type: string, url: string
     ];
     const results: { type: string, url: string }[] = [];
 
-    const img = await new Promise<HTMLImageElement>((resolve) => {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (e) => {
             const i = new Image();
             i.onload = () => resolve(i);
+            i.onerror = () => reject(new Error("Failed to load image"));
             i.src = e.target?.result as string;
         };
+        reader.onerror = () => reject(new Error("Failed to read file"));
         reader.readAsDataURL(file);
     });
 
@@ -174,7 +180,8 @@ export async function socialKit(file: File): Promise<{ type: string, url: string
 
         canvas.width = w;
         canvas.height = h;
-        const ctx = canvas.getContext('2d')!;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) continue;
 
         ctx.fillStyle = '#111111';
         ctx.fillRect(0, 0, w, h);

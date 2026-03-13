@@ -84,19 +84,20 @@ export const shredFileMetadata = async (file: File): Promise<string> => {
     // Basic implementation: strip EXIF by re-drawing on canvas
     if (!file.type.startsWith('image/')) return URL.createObjectURL(file);
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
         const img = new Image();
         img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            ctx?.drawImage(img, 0, 0);
-            canvas.toBlob((blob) => {
-                if (blob) resolve(URL.createObjectURL(blob));
-                else resolve(URL.createObjectURL(file));
-            }, 'image/jpeg');
+             const canvas = document.createElement('canvas');
+             canvas.width = img.width;
+             canvas.height = img.height;
+             const ctx = canvas.getContext('2d');
+             ctx?.drawImage(img, 0, 0);
+             canvas.toBlob((blob) => {
+                 if (blob) resolve(URL.createObjectURL(blob));
+                 else resolve(URL.createObjectURL(file));
+             }, 'image/jpeg');
         };
+        img.onerror = () => reject(new Error("Failed to load image"));
         img.src = URL.createObjectURL(file);
     });
 };
