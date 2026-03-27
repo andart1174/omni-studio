@@ -5,10 +5,9 @@ import {
   Sigma, Palette, Upload, Download,
   Menu, X, Sparkles, Copy, RefreshCcw,
   Image as ImageIcon, ScanText, FileText, Table,
-  Mic, Box as BoxIcon, Eye, Monitor, Scissors, Sun, Moon, History, QrCode,
-  Eraser, Maximize, MonitorPlay
+  Mic, Box as BoxIcon, Monitor, Scissors, Sun, Moon, History, QrCode,
+  Eraser, Maximize, MonitorPlay, Info
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import JSZip from 'jszip';
 
@@ -124,6 +123,7 @@ export default function App() {
 
   // Optimized studio switching
   const switchStudio = (id: StudioID, newResult: any = null) => {
+    console.log(`[OMNI] Switching to: ${id}`);
     setActiveStudio(id);
     setResult(newResult);
   };
@@ -157,6 +157,11 @@ export default function App() {
       return cleanup;
     }
   }, [activeStudio, result]);
+
+  // Debug Hook
+  useEffect(() => {
+    (window as any).OMNI_DEBUG = { activeStudio, language, resultType: result?.type };
+  }, [activeStudio, language, result]);
 
   const handleMicRecord = async () => {
     if (!isRecordingMic) {
@@ -478,13 +483,16 @@ export default function App() {
       </aside>
 
       {/* Main Workspace */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg-dark)', position: 'relative' }}>
+      <main data-active-studio={activeStudio} style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg-dark)', position: 'relative' }}>
         <header className="workspace-header" style={{ padding: '24px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ padding: 8, background: 'var(--accent-primary)', borderRadius: 10 }}>{currentStudio?.icon}</div>
-              <h2 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-main)' }}>{s.name}</h2>
+              <div className="glass" style={{ width: 40, height: 40, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-primary)' }}>
+                {currentStudio?.icon}
+              </div>
+              <h2 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-main)' }}>{s.name} <span style={{ fontSize: 12, opacity: 0.5 }}>[{activeStudio}]</span></h2>
             </div>
+            <p style={{ marginTop: 4, color: 'var(--text-muted)', fontSize: 13, fontWeight: 500 }}>{s.tagline}</p>
           </div>
           <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
             <div className="glass" style={{ padding: '4px 8px', borderRadius: 100, display: 'flex', gap: 4 }}>
@@ -509,22 +517,22 @@ export default function App() {
           </div>
         </header>
 
-        <div style={{ flex: 1, padding: '0 40px 40px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          {/* Instructions Panel - Outside AnimatePresence for instant sync */}
-          <div className="glass" style={{ padding: '16px 24px', borderRadius: 24, marginBottom: 20, borderLeft: '4px solid var(--accent-primary)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-              <Eye size={16} color="var(--accent-primary)" />
-              <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1, color: 'var(--accent-primary)', textTransform: 'uppercase' }}>How to Use</span>
+        <div className="workspace-content" style={{ gap: 20 }}>
+          <div className="glass" style={{ padding: 24, borderRadius: 24, display: 'flex', alignItems: 'flex-start', gap: 20, position: 'relative', overflow: 'hidden' }}>
+            <div style={{ padding: 12, borderRadius: 12, background: 'rgba(0,122,255,0.1)', color: 'var(--accent-primary)' }}>
+              <Info size={24} />
             </div>
-            <p style={{ color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.5 }}>{t.studios[activeStudio].howToUse}</p>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: 1 }}>How to use</span>
+              </div>
+              <p style={{ color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.5 }}>{s.howToUse}</p>
+            </div>
           </div>
 
-          <AnimatePresence mode="wait">
-            <motion.div
+          <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <div
               key={activeStudio + language}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
               style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
             >
 
@@ -547,191 +555,208 @@ export default function App() {
               {!result ? (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
                   {/* Contextual Utility Bars */}
-                  {activeStudio === 'eraser' && (
-                    <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 16, alignItems: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Brush Size:</span>
-                        <input type="range" min="10" max="100" value={brushSize} onChange={(e) => setBrushSize(Number(e.target.value))} style={{ width: 100 }} />
-                      </div>
-                      <button onClick={async () => {
-                        if (!eraserCanvasRef.current) return;
-                        setIsProcessing(true);
-                        const canvas = eraserCanvasRef.current;
-                        // Capture current canvas state
-                        const blob = await new Promise<Blob>(r => canvas.toBlob(b => r(b!), 'image/png'));
-                        const file = new File([blob], 'masked.png', { type: 'image/png' });
-                        const resultUrl = await visual.applyFilter(file, 'eraser');
-
-                        // Update state and history
-                        setResult({ url: resultUrl, type: 'image' });
-                        setHistory(prev => [{
-                          id: Date.now(),
-                          studio: 'eraser',
-                          type: 'image',
-                          url: resultUrl,
-                          time: new Date().toLocaleTimeString()
-                        }, ...prev].slice(0, 20));
-
-                        setIsProcessing(false);
-                        confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
-                      }} className="badge badge-purple" style={{ border: 'none', cursor: 'pointer' }}>Magic Remove</button>
-                      <button onClick={() => setResult(null)} className="badge badge-blue" style={{ border: 'none', cursor: 'pointer' }}>Reset</button>
-                    </div>
-                  )}
-                  {activeStudio === 'visual' && (
-                    <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 8 }}>
-                      {['pencil', 'anime', 'pixel', 'vintage', 'blueprint'].map(f => (
-                        <button key={f} onClick={() => setSelectedFilter(f as any)} className={`badge ${selectedFilter === f ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer', textTransform: 'capitalize' }}>{f}</button>
-                      ))}
-                    </div>
-                  )}
-                  {activeStudio === 'mockup' && (
-                    <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 8 }}>
-                      {['iphone', 'macbook', 'billboard', 'shirt', 'mug', 'bag'].map(t => (
-                        <button key={t} onClick={() => setMockupTemplate(t as mockup.MockupTemplate)} className={`badge ${mockupTemplate === t ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: 1, fontSize: 10 }}>{t}</button>
-                      ))}
-                    </div>
-                  )}
-                  {activeStudio === 'game' && (
-                    <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 8 }}>
-                      {['atlas', 'simplify'].map(m => (
-                        <button key={m} onClick={() => setGameMode(m as any)} className={`badge ${gameMode === m ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer', textTransform: 'capitalize' }}>{m}</button>
-                      ))}
-                    </div>
-                  )}
-                  {activeStudio === 'super-res' && (
-                    <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
-                      <span style={{ fontSize: 12, color: 'var(--text-main)' }}>Upscale Factor:</span>
-                      <select value={upscaleFactor} onChange={(e) => setUpscaleFactor(Number(e.target.value))} style={{ background: 'transparent', border: '1px solid var(--glass-border)', color: 'var(--text-main)', borderRadius: 4, padding: '2px 8px' }}>
-                        <option value={2}>2x (HD)</option>
-                        <option value={4}>4x (4K)</option>
-                      </select>
-                    </div>
-                  )}
-                  {activeStudio === 'screen' && (
-                    <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
-                      <button onClick={handleScreenCapture} className={`badge ${isRecording ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <div style={{ width: 8, height: 8, background: 'red', borderRadius: '50%', animation: isRecording ? 'pulse 1s infinite' : 'none' }} />
-                        {isRecording ? 'Stop Recording' : 'Start Recording'}
-                      </button>
-                    </div>
-                  )}
-                  {activeStudio === 'icon' && (
-                    <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
-                      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>UPLOAD LOGO TO GENERATE IOS/ANDROID SET</span>
-                    </div>
-                  )}
-                  {activeStudio === 'color' && (
-                    <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <Palette size={16} color="var(--accent-primary)" />
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700 }}>BASE COLOR:</span>
-                        <input type="color" value={colorBase} onChange={(e) => setColorBase(e.target.value)} style={{ border: 'none', width: 36, height: 36, background: 'transparent', cursor: 'pointer', borderRadius: 8 }} />
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'monospace' }}>{colorBase.toUpperCase()}</span>
-                      </div>
-                      <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.1)' }} />
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        {(['analogous', 'complementary', 'triadic', 'split', 'tetradic', 'monochromatic'] as PaletteMode[]).map(m => (
-                          <button key={m} onClick={() => setColorPaletteMode(m)} className={`badge ${colorPaletteMode === m ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer', textTransform: 'capitalize', fontSize: 10 }}>{m}</button>
-                        ))}
-                      </div>
-                      <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.1)' }} />
-                      <button onClick={() => processFiles([])} className="badge badge-purple" style={{ border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <Palette size={13} /> Generate Palette
-                      </button>
-                    </div>
-                  )}
-
-                  {activeStudio === 'document' && (
-                    <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 12 }}>
-                      <button onClick={() => setDocFormat('pdf')} className={`badge ${docFormat === 'pdf' ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer' }}>Images to PDF</button>
-                      <button onClick={() => setDocFormat('docx')} className={`badge ${docFormat === 'docx' ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer' }}>Text to Word</button>
-                    </div>
-                  )}
-                  {activeStudio === 'qr' && (
-                    <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
-                      <input type="text" value={qrText} onChange={(e) => setQrText(e.target.value)} placeholder="QR Content..." style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-main)', fontSize: 12, outline: 'none', width: 250 }} />
-                      <input type="color" value={qrColor} onChange={(e) => setQrColor(e.target.value)} style={{ border: 'none', width: 30, height: 30, background: 'transparent', cursor: 'pointer' }} />
-                      <button onClick={() => processFiles([])} className="badge badge-purple" style={{ border: 'none', cursor: 'pointer' }}>Generate QR</button>
-                    </div>
-                  )}
-                  {activeStudio === '3d' && (
-                    <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
-                      <button onClick={() => processFiles([])} className="badge badge-blue" style={{ border: 'none', cursor: 'pointer' }}>Start 3D Viewer</button>
-                      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>OR UPLOAD .OBJ BELOW</span>
-                    </div>
-                  )}
-                  {activeStudio === 'analytics' && (
-                    <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 8 }}>
-                      {['bar', 'line', 'pie'].map(m => (
-                        <button key={m} onClick={() => setAnalyticsMode(m as any)} className={`badge ${analyticsMode === m ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer', textTransform: 'capitalize' }}>{m} Chart</button>
-                      ))}
-                    </div>
-                  )}
-                  {activeStudio === 'cyber' && (
-                    <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 8 }}>
-                      {['ascii', 'hash', 'password'].map(m => (
-                        <button key={m} onClick={() => setCyberMode(m as any)} className={`badge ${cyberMode === m ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer', textTransform: 'capitalize' }}>{m}</button>
-                      ))}
-                      {cyberMode === 'password' && (
-                        <button onClick={async () => {
-                          const { pass, entropy } = cyber.generatePassword();
-                          const url = URL.createObjectURL(new Blob([`Password: ${pass}\nEntropy: ${Math.round(entropy)} bits`], { type: 'text/plain' }));
-                          setResult({ url, type: 'text' });
-                        }} className="badge badge-purple" style={{ border: 'none', cursor: 'pointer' }}>New Password</button>
-                      )}
-                    </div>
-                  )}
-                  {activeStudio === 'motion' && (
-                    <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
-                      <button onClick={handleMicRecord} className={`badge ${isRecordingMic ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, animation: isRecordingMic ? 'pulse 1.5s infinite' : 'none' }}>
-                        <Mic size={14} /> {isRecordingMic ? 'Stop Recording' : 'Start Mic Recording'}
-                      </button>
-                      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>OR UPLOAD MP3 BELOW</span>
-                    </div>
-                  )}
-                  {activeStudio === 'branding' && (
-                    <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        {['logo', 'palette', 'watermark', 'icons', 'social'].map(m => (
-                          <button key={m} onClick={() => setBrandingMode(m as any)} className={`badge ${brandingMode === m ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer', textTransform: 'capitalize' }}>{m}</button>
-                        ))}
-                      </div>
-                      {brandingMode === 'logo' && (
-                        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Logo Tint:</span>
-                          <div style={{ display: 'flex', gap: 4, background: 'rgba(255,255,255,0.05)', padding: 4, borderRadius: 8 }}>
-                            <button onClick={() => setInvertLogo(false)} className={`badge ${!invertLogo ? 'badge-purple' : ''}`} style={{ border: 'none', cursor: 'pointer', fontSize: 10, background: !invertLogo ? 'var(--accent-primary)' : 'transparent' }}>White</button>
-                            <button onClick={() => setInvertLogo(true)} className={`badge ${invertLogo ? 'badge-purple' : ''}`} style={{ border: 'none', cursor: 'pointer', fontSize: 10, background: invertLogo ? 'var(--accent-primary)' : 'transparent' }}>Black</button>
+                  {(() => {
+                    switch (activeStudio) {
+                      case 'eraser':
+                        return (
+                          <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 16, alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Brush Size:</span>
+                              <input type="range" min="10" max="100" value={brushSize} onChange={(e) => setBrushSize(Number(e.target.value))} style={{ width: 100 }} />
+                            </div>
+                            <button onClick={async () => {
+                              if (!eraserCanvasRef.current) return;
+                              setIsProcessing(true);
+                              const canvas = eraserCanvasRef.current;
+                              const blob = await new Promise<Blob>(r => canvas.toBlob(b => r(b!), 'image/png'));
+                              const file = new File([blob], 'masked.png', { type: 'image/png' });
+                              const resultUrl = await visual.applyFilter(file, 'eraser');
+                              setResult({ url: resultUrl, type: 'image' });
+                              setHistory(prev => [{ id: Date.now(), studio: 'eraser', type: 'image', url: resultUrl, time: new Date().toLocaleTimeString() }, ...prev].slice(0, 20));
+                              setIsProcessing(false);
+                              confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+                            }} className="badge badge-purple" style={{ border: 'none', cursor: 'pointer' }}>Magic Remove</button>
+                            <button onClick={() => setResult(null)} className="badge badge-blue" style={{ border: 'none', cursor: 'pointer' }}>Reset</button>
                           </div>
-                        </div>
-                      )}
-                      {brandingMode === 'watermark' && (
-                        <input
-                          type="text"
-                          value={watermarkText}
-                          onChange={(e) => setWatermarkText(e.target.value)}
-                          placeholder="Watermark text..."
-                          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', padding: '8px 12px', borderRadius: 8, color: '#fff', outline: 'none' }}
-                        />
-                      )}
-                    </div>
-                  )}
-                  {activeStudio === 'audio' && (
-                    <div className="glass" style={{ padding: 12, borderRadius: 16 }}>
-                      <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-                        <Mic size={20} color="var(--accent-primary)" />
-                        <input
-                          type="text"
-                          placeholder="Type to speak..."
-                          style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-main)', outline: 'none' }}
-                          value={inputText}
-                          onChange={(e) => setInputText(e.target.value)}
-                        />
-                        <button onClick={() => audio.textToSpeech(inputText)} className="badge badge-blue" style={{ border: 'none', cursor: 'pointer' }}>Speak</button>
-                      </div>
-                    </div>
-                  )}
+                        );
+                      case 'visual':
+                        return (
+                          <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 8 }}>
+                            {['pencil', 'anime', 'pixel', 'vintage', 'blueprint'].map(f => (
+                              <button key={f} onClick={() => setSelectedFilter(f as any)} className={`badge ${selectedFilter === f ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer', textTransform: 'capitalize' }}>{f}</button>
+                            ))}
+                          </div>
+                        );
+                      case 'mockup':
+                        return (
+                          <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 8 }}>
+                            {['iphone', 'macbook', 'billboard', 'shirt', 'mug', 'bag'].map(t => (
+                              <button key={t} onClick={() => setMockupTemplate(t as mockup.MockupTemplate)} className={`badge ${mockupTemplate === t ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: 1, fontSize: 10 }}>{t}</button>
+                            ))}
+                          </div>
+                        );
+                      case 'game':
+                        return (
+                          <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 8 }}>
+                            {['atlas', 'simplify'].map(m => (
+                              <button key={m} onClick={() => setGameMode(m as any)} className={`badge ${gameMode === m ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer', textTransform: 'capitalize' }}>{m}</button>
+                            ))}
+                          </div>
+                        );
+                      case 'super-res':
+                        return (
+                          <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
+                            <span style={{ fontSize: 12, color: 'var(--text-main)' }}>Upscale Factor:</span>
+                            <select value={upscaleFactor} onChange={(e) => setUpscaleFactor(Number(e.target.value))} style={{ background: 'transparent', border: '1px solid var(--glass-border)', color: 'var(--text-main)', borderRadius: 4, padding: '2px 8px' }}>
+                              <option value={2}>2x (HD)</option>
+                              <option value={4}>4x (4K)</option>
+                            </select>
+                          </div>
+                        );
+                      case 'screen':
+                        return (
+                          <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
+                            <button onClick={handleScreenCapture} className={`badge ${isRecording ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <div style={{ width: 8, height: 8, background: 'red', borderRadius: '50%', animation: isRecording ? 'pulse 1s infinite' : 'none' }} />
+                              {isRecording ? 'Stop Recording' : 'Start Recording'}
+                            </button>
+                          </div>
+                        );
+                      case 'icon':
+                        return (
+                          <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
+                            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>UPLOAD LOGO TO GENERATE IOS/ANDROID SET</span>
+                          </div>
+                        );
+                      case 'font':
+                        return (
+                          <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
+                            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>UPLOAD SVG FILES TO GENERATE FONT</span>
+                          </div>
+                        );
+                      case 'color':
+                        return (
+                          <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <Palette size={16} color="var(--accent-primary)" />
+                              <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700 }}>BASE COLOR:</span>
+                              <input type="color" value={colorBase} onChange={(e) => setColorBase(e.target.value)} style={{ border: 'none', width: 36, height: 36, background: 'transparent', cursor: 'pointer', borderRadius: 8 }} />
+                              <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'monospace' }}>{colorBase.toUpperCase()}</span>
+                            </div>
+                            <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.1)' }} />
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                              {(['analogous', 'complementary', 'triadic', 'split', 'tetradic', 'monochromatic'] as PaletteMode[]).map(m => (
+                                <button key={m} onClick={() => setColorPaletteMode(m)} className={`badge ${colorPaletteMode === m ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer', textTransform: 'capitalize', fontSize: 10 }}>{m}</button>
+                              ))}
+                            </div>
+                            <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.1)' }} />
+                            <button onClick={() => processFiles([])} className="badge badge-purple" style={{ border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <Palette size={13} /> Generate Palette
+                            </button>
+                          </div>
+                        );
+                      case 'document':
+                        return (
+                          <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 12 }}>
+                            <button onClick={() => setDocFormat('pdf')} className={`badge ${docFormat === 'pdf' ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer' }}>Images to PDF</button>
+                            <button onClick={() => setDocFormat('docx')} className={`badge ${docFormat === 'docx' ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer' }}>Text to Word</button>
+                          </div>
+                        );
+                      case 'qr':
+                        return (
+                          <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
+                            <input type="text" value={qrText} onChange={(e) => setQrText(e.target.value)} placeholder="QR Content..." style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-main)', fontSize: 12, outline: 'none', width: 250 }} />
+                            <input type="color" value={qrColor} onChange={(e) => setQrColor(e.target.value)} style={{ border: 'none', width: 30, height: 30, background: 'transparent', cursor: 'pointer' }} />
+                            <button onClick={() => processFiles([])} className="badge badge-purple" style={{ border: 'none', cursor: 'pointer' }}>Generate QR</button>
+                          </div>
+                        );
+                      case '3d':
+                        return (
+                          <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
+                            <button onClick={() => processFiles([])} className="badge badge-blue" style={{ border: 'none', cursor: 'pointer' }}>Start 3D Viewer</button>
+                            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>OR UPLOAD .OBJ BELOW</span>
+                          </div>
+                        );
+                      case 'analytics':
+                        return (
+                          <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 8 }}>
+                            {['bar', 'line', 'pie'].map(m => (
+                              <button key={m} onClick={() => setAnalyticsMode(m as any)} className={`badge ${analyticsMode === m ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer', textTransform: 'capitalize' }}>{m} Chart</button>
+                            ))}
+                          </div>
+                        );
+                      case 'cyber':
+                        return (
+                          <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 8 }}>
+                            {['ascii', 'hash', 'password'].map(m => (
+                              <button key={m} onClick={() => setCyberMode(m as any)} className={`badge ${cyberMode === m ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer', textTransform: 'capitalize' }}>{m}</button>
+                            ))}
+                            {cyberMode === 'password' && (
+                              <button onClick={async () => {
+                                const { pass, entropy } = cyber.generatePassword();
+                                const url = URL.createObjectURL(new Blob([`Password: ${pass}\nEntropy: ${Math.round(entropy)} bits`], { type: 'text/plain' }));
+                                setResult({ url, type: 'text' });
+                              }} className="badge badge-purple" style={{ border: 'none', cursor: 'pointer' }}>New Password</button>
+                            )}
+                          </div>
+                        );
+                      case 'motion':
+                        return (
+                          <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
+                            <button onClick={handleMicRecord} className={`badge ${isRecordingMic ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, animation: isRecordingMic ? 'pulse 1.5s infinite' : 'none' }}>
+                              <Mic size={14} /> {isRecordingMic ? 'Stop Recording' : 'Start Mic Recording'}
+                            </button>
+                            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>OR UPLOAD MP3 BELOW</span>
+                          </div>
+                        );
+                      case 'branding':
+                        return (
+                          <div className="glass" style={{ padding: 12, borderRadius: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                              {['logo', 'palette', 'watermark', 'icons', 'social'].map(m => (
+                                <button key={m} onClick={() => setBrandingMode(m as any)} className={`badge ${brandingMode === m ? 'badge-purple' : 'badge-blue'}`} style={{ border: 'none', cursor: 'pointer', textTransform: 'capitalize' }}>{m}</button>
+                              ))}
+                            </div>
+                            {brandingMode === 'logo' && (
+                              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Logo Tint:</span>
+                                <div style={{ display: 'flex', gap: 4, background: 'rgba(255,255,255,0.05)', padding: 4, borderRadius: 8 }}>
+                                  <button onClick={() => setInvertLogo(false)} className={`badge ${!invertLogo ? 'badge-purple' : ''}`} style={{ border: 'none', cursor: 'pointer', fontSize: 10, background: !invertLogo ? 'var(--accent-primary)' : 'transparent' }}>White</button>
+                                  <button onClick={() => setInvertLogo(true)} className={`badge ${invertLogo ? 'badge-purple' : ''}`} style={{ border: 'none', cursor: 'pointer', fontSize: 10, background: invertLogo ? 'var(--accent-primary)' : 'transparent' }}>Black</button>
+                                </div>
+                              </div>
+                            )}
+                            {brandingMode === 'watermark' && (
+                              <input
+                                type="text"
+                                value={watermarkText}
+                                onChange={(e) => setWatermarkText(e.target.value)}
+                                placeholder="Watermark text..."
+                                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', padding: '8px 12px', borderRadius: 8, color: '#fff', outline: 'none' }}
+                              />
+                            )}
+                          </div>
+                        );
+                      case 'audio':
+                        return (
+                          <div className="glass" style={{ padding: 12, borderRadius: 16 }}>
+                            <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                              <Mic size={20} color="var(--accent-primary)" />
+                              <input
+                                type="text"
+                                placeholder="Type to speak..."
+                                style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-main)', outline: 'none' }}
+                                value={inputText}
+                                onChange={(e) => setInputText(e.target.value)}
+                              />
+                              <button onClick={() => audio.textToSpeech(inputText)} className="badge badge-blue" style={{ border: 'none', cursor: 'pointer' }}>Speak</button>
+                            </div>
+                          </div>
+                        );
+                      default:
+                        return null;
+                    }
+                  })()}
 
                   <div className="drop-zone" style={{ flex: 1, cursor: 'pointer', position: 'relative' }} onClick={() => !isProcessing && fileInputRef.current?.click()}
                     onDragOver={(e) => e.preventDefault()}
@@ -851,7 +876,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="glass" style={{ flex: 1, borderRadius: '0 0 32px 32px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', position: 'relative', minHeight: 0 }}>
+                  <div className="glass" style={{ flex: 1, borderRadius: '0 0 32px 32px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#070707', position: 'relative', minHeight: 0 }}>
                     {result.type === 'image' && result.data && activeStudio === 'icon' ? (
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 16 }}>
                         {result.data.map((icon: any, i: number) => (
@@ -921,7 +946,20 @@ export default function App() {
                             <div style={{ position: 'absolute', bottom: -30, left: '50%', transform: 'translateX(-50%)', fontSize: 10, color: 'var(--text-muted)', fontWeight: 700 }}>BRUSH OVER OBJECTS AND CLICK MAGIC REMOVE</div>
                           </div>
                         ) : result.type === 'image' && (
-                          <img src={result.url} style={{ maxWidth: '95%', maxHeight: '95%', objectFit: 'contain', filter: 'drop-shadow(0 20px 50px rgba(0,0,0,0.5))' }} alt="Result" />
+                          <div style={{ width: '100%', height: '100%', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0, padding: 10 }}>
+                            <img 
+                              src={result.url} 
+                              style={{ 
+                                maxWidth: '100%', 
+                                maxHeight: 'calc(100vh - 450px)', /* Defensive constraint */
+                                minHeight: '100px',
+                                objectFit: 'contain', 
+                                borderRadius: 12,
+                                filter: 'drop-shadow(0 20px 50px rgba(0,0,0,0.5))' 
+                              }} 
+                              alt="Result" 
+                            />
+                          </div>
                         )}
                         {result.type === 'svg' && <img src={result.url} style={{ maxWidth: '80%' }} alt="Result" />}
                         {result.type === 'text' && (
@@ -983,19 +1021,25 @@ export default function App() {
                   </div>
                 </div>
               )}
-            </motion.div>
-          </AnimatePresence>
+            </div>
+          </div>
         </div>
 
         <footer style={{ padding: '16px 40px', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--glass-border)', background: '#000' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, color: '#666' }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#30d158' }}></div>
-            <span>{t.common.secure_msg}</span>
+            <div style={{ display: 'flex', gap: 16 }}>
+              <span style={{ opacity: 0.5 }}>Secure Environment Active</span>
+              <span style={{ opacity: 0.8, color: 'var(--accent-primary)' }}>OmniConvert v2.2 Platinum Debug</span>
+            </div>
           </div>
-          <div style={{ fontSize: 11, color: '#444' }}>OmniConvert v2.1 Platinum</div>
         </footer>
       </main>
 
+      {/* Global Debug Overlay */}
+      <div style={{ position: 'fixed', top: 10, left: '50%', transform: 'translateX(-50%)', background: 'rgba(255,0,0,0.8)', color: '#fff', fontSize: 10, padding: '4px 12px', borderRadius: 20, zIndex: 9999, pointerEvents: 'none', fontWeight: 700 }}>
+        STATE: {activeStudio} | LANG: {language} | RELATIVE VERSION: 2.2-FIX-3
+      </div>
       <style>{`
         .sidebar-nav::-webkit-scrollbar { width: 4px; }
         .sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
