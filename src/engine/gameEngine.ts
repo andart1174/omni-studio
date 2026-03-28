@@ -1,43 +1,52 @@
 export const createSpriteAtlas = async (files: File[]): Promise<string> => {
     return new Promise((resolve, reject) => {
-        const validFiles = files.filter(f => f.type.startsWith('image/'));
+        // Enforce alphanumeric sorting so frame1, frame2, frame10 stay sequential
+        const validFiles = files
+            .filter(f => f.type.startsWith('image/'))
+            .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+            
         if (validFiles.length === 0) return reject(new Error("No valid images provided"));
 
-        const images: HTMLImageElement[] = [];
+        const images: HTMLImageElement[] = new Array(validFiles.length);
         let loadedCount = 0;
         let hasRejected = false;
 
-        validFiles.forEach((file) => {
+        validFiles.forEach((file, index) => {
             const img = new Image();
             img.onload = () => {
                 if (hasRejected) return;
-                images.push(img);
+                // Place img exactly where it should exist in sequential order
+                images[index] = img;
                 loadedCount++;
                 if (loadedCount === validFiles.length) {
                     const canvas = document.createElement('canvas');
+                    // Find a perfect square ceiling for the sprites length
                     const size = Math.ceil(Math.sqrt(validFiles.length));
                     const maxW = Math.max(...images.map(i => i.width));
                     const maxH = Math.max(...images.map(i => i.height));
                     
                     // Limit canvas size to avoid browser limits
                     const MAX_DIM = 4096;
-                    let targetW = maxW;
-                    let targetH = maxH;
-                    if (size * maxW > MAX_DIM || size * maxH > MAX_DIM) {
-                        const scale = Math.min(MAX_DIM / (size * maxW), MAX_DIM / (size * maxH));
-                        targetW = Math.max(1, Math.floor(maxW * scale));
-                        targetH = Math.max(1, Math.floor(maxH * scale));
-                    }
+                    const scale = (size * maxW > MAX_DIM || size * maxH > MAX_DIM) 
+                        ? Math.min(MAX_DIM / (size * maxW), MAX_DIM / (size * maxH))
+                        : 1;
 
-                    canvas.width = size * targetW;
-                    canvas.height = size * targetH;
+                    const cellW = Math.max(1, Math.floor(maxW * scale));
+                    const cellH = Math.max(1, Math.floor(maxH * scale));
+
+                    canvas.width = size * cellW;
+                    canvas.height = size * cellH;
                     const ctx = canvas.getContext('2d');
                     if (!ctx) return reject(new Error("Canvas failure"));
 
-                    images.forEach((img, i) => {
-                        const x = (i % size) * targetW;
-                        const y = Math.floor(i / size) * targetH;
-                        ctx.drawImage(img, x, y, targetW, targetH);
+                    images.forEach((currentImg, i) => {
+                        const x = (i % size) * cellW;
+                        const y = Math.floor(i / size) * cellH;
+                        
+                        // Draw at intrinsic aspect ratio instead of brutally stretching the sprite
+                        const drawW = currentImg.width * scale;
+                        const drawH = currentImg.height * scale;
+                        ctx.drawImage(currentImg, x, y, drawW, drawH);
                     });
 
                     canvas.toBlob((blob) => {
