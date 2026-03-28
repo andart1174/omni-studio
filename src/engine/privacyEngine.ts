@@ -12,7 +12,7 @@ export const detectAndBlurSensitiveData = async (
     patterns: RegExp[] = [
         /\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b/g, // Credit Cards
         /\b\d{3}-\d{2}-\d{4}\b/g, // SSN (US style, example)
-        /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g // Emails
+        /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g // Emails
     ]
 ): Promise<string> => {
     console.log("[PrivacyEngine] Starting detection for:", file.name);
@@ -33,19 +33,43 @@ export const detectAndBlurSensitiveData = async (
              ctx.drawImage(img, 0, 0);
 
              try {
+                 console.log("[PrivacyEngine] Running OCR (this may take a few seconds)...");
                  const result = await Tesseract.recognize(img, 'eng');
                  const words = (result as any).data.words;
+                 console.log(`[PrivacyEngine] OCR complete. Analyzing ${words.length} words...`);
+                 
+                 // Reconstruct full text and track word character spans to handle matches across spaces
+                 let fullText = "";
+                 const wordSpans: { word: any; start: number; end: number }[] = [];
+                 words.forEach((word: any) => {
+                     const start = fullText.length;
+                     fullText += word.text + " ";
+                     const end = fullText.length - 1; // index before space
+                     wordSpans.push({ word, start, end });
+                 });
                  
                  let sensitiveCount = 0;
-                 words.forEach((word: any) => {
-                     const isSensitive = patterns.some(pattern => pattern.test(word.text));
-                     if (isSensitive) {
+                 patterns.forEach(pattern => {
+                     // Ensure pattern search starts from beginning
+                     pattern.lastIndex = 0;
+                     let match;
+                     while ((match = pattern.exec(fullText)) !== null) {
                          sensitiveCount++;
-                         const { x0, y0, x1, y1 } = word.bbox;
-                         blurArea(ctx, x0, y0, x1 - x0, y1 - y0);
+                         const matchStart = match.index;
+                         const matchEnd = matchStart + match[0].length;
+                         
+                         // Find all word bounding boxes that overlap with this regex match
+                         wordSpans.forEach(span => {
+                             if (span.end > matchStart && span.start < matchEnd) {
+                                 const { x0, y0, x1, y1 } = span.word.bbox;
+                                 blurArea(ctx, x0 - 2, y0 - 2, (x1 - x0) + 4, (y1 - y0) + 4);
+                             }
+                         });
                      }
                  });
                  
+                 console.log(`[PrivacyEngine] Found and blurred ${sensitiveCount} sensitive sequences.`);
+
                  canvas.toBlob((blob) => {
                      URL.revokeObjectURL(objectUrl);
                      if (blob) {
@@ -55,6 +79,7 @@ export const detectAndBlurSensitiveData = async (
                      }
                  }, 'image/jpeg', 0.9);
              } catch (err) {
+                 console.error("[PrivacyEngine] Error during OCR/Processing:", err);
                  URL.revokeObjectURL(objectUrl);
                  reject(err);
              }
